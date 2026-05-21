@@ -8,10 +8,16 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-DB_PATH = os.path.join("output", "join_database.db")
+OUTPUT_DIR = os.path.join("output")
 USERS_CSV = "users.csv"
 TRANSACTIONS_CSV = "transactions.csv"
-OUTPUT_CSV = os.path.join("output", "result.csv")
+
+
+def get_job_paths(job_id: str):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    db_path = os.path.join(OUTPUT_DIR, f"join_database_{job_id}.db")
+    output_csv = os.path.join(OUTPUT_DIR, f"result_{job_id}.csv")
+    return db_path, output_csv
 
 
 def load_csv_to_sqlite(csv_path, table_name, conn, chunksize=100_000):
@@ -37,19 +43,18 @@ def load_csv_to_sqlite(csv_path, table_name, conn, chunksize=100_000):
     logging.info(f"Finished loading {table_name}")
 
 
-def perform_join():
+def perform_join(job_id: str) -> str:
     """
     Performs INNER JOIN between users and transactions using SQLite.
-    Writes the result to output/result.csv in chunks.
+    Writes the result to a job-specific CSV file in chunks.
     """
 
+    db_path, output_csv = get_job_paths(job_id)
 
-    logging.info("Join job started")
+    logging.info(f"Join job started for job_id={job_id}")
+    logging.info(f"Using DB path {db_path} and output path {output_csv}")
 
-    # Ensure output directory exists
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(db_path)
 
     try:
         load_csv_to_sqlite(USERS_CSV, "users", conn)
@@ -81,19 +86,21 @@ def perform_join():
 
         for chunk in pd.read_sql_query(query, conn, chunksize=100_000):
             chunk.to_csv(
-                OUTPUT_CSV,
+                output_csv,
                 mode="w" if first_chunk else "a",
                 index=False,
                 header=first_chunk
             )
 
             first_chunk = False
-            logging.info(f"Written one joined chunk to {OUTPUT_CSV}")
+            logging.info(f"Written one joined chunk to {output_csv}")
 
-        logging.info(f"Join job completed successfully. {OUTPUT_CSV} created.")
+        logging.info(f"Join job completed successfully. {output_csv} created.")
+        return output_csv
 
     finally:
         conn.close()
 
+
 if __name__ == "__main__":
-    perform_join()
+    perform_join("local")

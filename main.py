@@ -32,11 +32,11 @@ def run_join_job(job_id: str, jobs_dict):
     jobs_dict[job_id] = current
 
     try:
-        perform_join()
+        output_file = perform_join(job_id)
         current = jobs_dict[job_id]
         current["status"] = "completed"
         current["finished_at"] = str(datetime.now())
-        current["output_file"] = "result.csv"
+        current["output_file"] = output_file
         jobs_dict[job_id] = current
 
     except Exception as e:
